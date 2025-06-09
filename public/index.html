@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SyncFilm</title>
+    <link rel="stylesheet" href="video.css" />
+    <link rel="icon" href="favicon.ico" />
+  </head>
+  <body>
+    <button id="madame-mode" class="madame-btn">
+      <span class="madame-text">Madame</span>
+      <span class="heart">❤</span>
+    </button>
+    <h1>SyncFilm</h1>
+    <input type="file" id="fileInput" accept="video/*" />
+    <div id="video-player">
+      <video id="video" src="" preload="metadata"></video>
+      <div id="loading" style="display: none">Chargement...</div>
+      <div id="controls">
+        <button id="rewind">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 12L24 0v24zM0 12L12 0v24z" />
+          </svg>
+        </button>
+        <button id="play-pause">
+          <svg id="play-icon" viewBox="0 0 24 24">
+            <path d="M0 0v24l24-12z" />
+          </svg>
+          <svg id="pause-icon" viewBox="0 0 24 24">
+            <path d="M0 0h6v24H0zM18 0h6v24h-6z" />
+          </svg>
+        </button>
+        <button id="forward">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 12L0 24V0zM24 12L12 24V0z" />
+          </svg>
+        </button>
+        <span id="current-time">0:00</span>
+        <input id="progress-bar" type="range" value="0" max="100" />
+        <span id="duration">0:00</span>
+        <button id="mute">
+          <svg id="sound-icon" viewBox="0 0 24 24">
+            <path d="M0 8v8h4l5 5V3L4 8H0z" />
+          </svg>
+          <svg id="mute-icon" viewBox="0 0 24 24">
+            <path
+              d="M0 8v8h4l5 5V3L4 8H0zM19 5l-1.5 1.5L16 8l-1.5-1.5L13 5l-1.5 1.5L10 8l-1.5-1.5L7 5l-1.5 1.5L4 8l-1.5-1.5L1 5l1.5-1.5L4 2l1.5 1.5L7 5l1.5-1.5L10 2l1.5 1.5L13 5l1.5-1.5L16 2l1.5 1.5L19 5z"
+            />
+          </svg>
+        </button>
+        <input id="volume" type="range" value="100" max="100" />
+        <button id="fullscreen">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M0 0h10v2H2v8H0V0zm14 0h10v10h-2V2h-8V0zM0 14h2v8h8v2H0v-10zm14 0h8v8h2v10h-10v-2h8v-8h-8v-2z"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/video.js"></script>
+    <script src="/madameMode.js"></script>
+    <script src="chooseVideo.js"></script>
+  </body>
+</html>
