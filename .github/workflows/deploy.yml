@@ -7,26 +7,36 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted 
+    runs-on: self-hosted
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Deploy to production
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            mkdir -p ${{ secrets.DEPLOY_PATH }}
-            cd ${{ secrets.DEPLOY_PATH }}
+          REPO_NAME=${{ github.event.repository.name }}
 
-            echo '${{ secrets.ENV_FILE }}' > .env
+          # Préparer le contenu du .env (vide si secret non défini)
+          if [ -z "${{ secrets.ENV_FILE }}" ]; then
+            ENV_CONTENT=""
+          else
+            ENV_CONTENT="${{ secrets.ENV_FILE }}"
+          fi
+
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            mkdir -p /srv/$REPO_NAME
+            cd /srv/$REPO_NAME
+
+            # Crée .env seulement si contenu non vide
+            if [ -n \"$ENV_CONTENT\" ]; then
+              echo \"$ENV_CONTENT\" > .env
+            fi
 
             if [ ! -d .git ]; then
-              git clone https://github.com/arthur-pbty/syncfilm .
+              git clone https://github.com/arthur-pbty-labs/$REPO_NAME .
             else
               git pull origin main
             fi
 
             docker compose up -d --build
           "
-
-
