@@ -16,7 +16,6 @@ jobs:
         run: |
           REPO_NAME=${{ github.event.repository.name }}
 
-          # Préparer le contenu du .env (vide si secret non défini)
           if [ -z "${{ secrets.ENV_FILE }}" ]; then
             ENV_CONTENT=""
           else
@@ -27,15 +26,16 @@ jobs:
             mkdir -p /srv/$REPO_NAME
             cd /srv/$REPO_NAME
 
-            # Crée .env seulement si contenu non vide
-            if [ -n \"$ENV_CONTENT\" ]; then
-              echo \"$ENV_CONTENT\" > .env
-            fi
-
             if [ ! -d .git ]; then
+              rm -rf ./*    # vide le dossier si nécessaire
               git clone https://github.com/arthur-pbty-labs/$REPO_NAME .
             else
+              git reset --hard
               git pull origin main
+            fi
+
+            if [ -n \"$ENV_CONTENT\" ]; then
+              echo \"$ENV_CONTENT\" > .env
             fi
 
             docker compose up -d --build
