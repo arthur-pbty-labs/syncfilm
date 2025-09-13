@@ -14,4 +14,4 @@ services:
       - STATIC_FILES_PATH=${STATIC_FILES_PATH:-public}
     volumes:
       - .:/app # Mount the current directory to the container
-    command: npm start
+    command: sh -c "npm install && npm start"
