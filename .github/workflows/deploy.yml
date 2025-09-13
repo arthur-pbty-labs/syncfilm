@@ -40,4 +40,4 @@ jobs:
             fi
 
             docker compose up -d --build
-EOF
+          EOF
