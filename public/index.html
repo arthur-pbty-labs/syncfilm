@@ -1,67 +1,239 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
     <title>SyncFilm</title>
-    <link rel="stylesheet" href="video.css" />
-    <link rel="icon" href="favicon.ico" />
-  </head>
-  <body>
-    <button id="madame-mode" class="madame-btn">
-      <span class="madame-text">Madame</span>
-      <span class="heart">❤</span>
-    </button>
-    <h1>SyncFilm</h1>
-    <input type="file" id="fileInput" accept="video/*" />
-    <div id="video-player">
-      <video id="video" src="" preload="metadata"></video>
-      <div id="loading" style="display: none">Chargement...</div>
-      <div id="controls">
-        <button id="rewind">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 12L24 0v24zM0 12L12 0v24z" />
-          </svg>
-        </button>
-        <button id="play-pause">
-          <svg id="play-icon" viewBox="0 0 24 24">
-            <path d="M0 0v24l24-12z" />
-          </svg>
-          <svg id="pause-icon" viewBox="0 0 24 24">
-            <path d="M0 0h6v24H0zM18 0h6v24h-6z" />
-          </svg>
-        </button>
-        <button id="forward">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 12L0 24V0zM24 12L12 24V0z" />
-          </svg>
-        </button>
-        <span id="current-time">0:00</span>
-        <input id="progress-bar" type="range" value="0" max="100" />
-        <span id="duration">0:00</span>
-        <button id="mute">
-          <svg id="sound-icon" viewBox="0 0 24 24">
-            <path d="M0 8v8h4l5 5V3L4 8H0z" />
-          </svg>
-          <svg id="mute-icon" viewBox="0 0 24 24">
-            <path
-              d="M0 8v8h4l5 5V3L4 8H0zM19 5l-1.5 1.5L16 8l-1.5-1.5L13 5l-1.5 1.5L10 8l-1.5-1.5L7 5l-1.5 1.5L4 8l-1.5-1.5L1 5l1.5-1.5L4 2l1.5 1.5L7 5l1.5-1.5L10 2l1.5 1.5L13 5l1.5-1.5L16 2l1.5 1.5L19 5z"
-            />
-          </svg>
-        </button>
-        <input id="volume" type="range" value="100" max="100" />
-        <button id="fullscreen">
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M0 0h10v2H2v8H0V0zm14 0h10v10h-2V2h-8V0zM0 14h2v8h8v2H0v-10zm14 0h8v8h2v10h-10v-2h8v-8h-8v-2z"
-            />
-          </svg>
-        </button>
-      </div>
-    </div>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/video.js"></script>
-    <script src="/madameMode.js"></script>
-    <script src="chooseVideo.js"></script>
-  </body>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="video-player">
+        <input type="file" id="video-file" accept="video/*">
+        <video id="video"></video>
+        <div class="video-controls">
+            <button id="play-btn">Lecture</button>
+            <button id="pause-btn">Pause</button>
+            <button id="restart-btn">Recommencer</button>
+            <button id="forward-btn">+10s</button>
+            <button id="backward-btn">-10s</button>
+            <input type="range" id="volume-bar" min="0" max="1" step="0.01" value="1">
+            <button id="mute-btn">Mute</button>
+        </div>
+        <div class="video-time-bar">
+            <input type="range" id="seek-bar" min="0" value="0" step="0.01" disabled>
+            <span id="time-label">00:00 / 00:00</span>
+        </div>
+    </div>
+
+    <div id="ws-status">Connecté au WebSocket</div>
+    <div id="users">
+        <h2>Liste des personnes connectées</h2>
+        <ul></ul>
+    </div>
+
+    <script>
+      const socket = io();
+      let users = [];
+      let myFilename = null;
+
+      const video = document.getElementById('video');
+      const seekBar = document.getElementById('seek-bar');
+      const timeLabel = document.getElementById('time-label');
+      const volumeBar = document.getElementById('volume-bar');
+      const muteBtn = document.getElementById('mute-btn');
+      const wsStatus = document.getElementById('ws-status');
+      const videoPlayer = document.getElementById('video-player');
+
+      // Gestion de la liste des utilisateurs
+      socket.on('users', function(userList) {
+        users = userList;
+        const ul = document.querySelector('#users ul');
+        ul.innerHTML = '';
+        userList.forEach(function(user) {
+          const filename = user.filename ? user.filename : 'Aucun fichier sélectionné';
+          const li = document.createElement('li');
+          li.textContent = `ID: ${user.id} — Fichier: ${filename}`;
+          ul.appendChild(li);
+          if (user.id === socket.id) {
+            myFilename = user.filename || null;
+          }
+        });
+        updateSeekBarState();
+        pauseVideo();
+      });
+
+      // Sélection du fichier vidéo
+      document.getElementById('video-file').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const url = URL.createObjectURL(file);
+          video.src = url;
+          video.load();
+          myFilename = file.name;
+          socket.emit('videoSelected', file.name);
+        } else {
+          myFilename = null;
+          socket.emit('videoSelected', null);
+        }
+      });
+
+      function allUsersHaveSameFile() {
+        if (!myFilename) return false;
+        return users.length > 0 && users.every(u => u.filename && u.filename === myFilename);
+      }
+
+      socket.on('connect', () => {
+        wsStatus.textContent = 'Connecté au WebSocket';
+        wsStatus.style.color = '#50fa7b';
+        if (video.src && video.src.startsWith('blob:') && myFilename) {
+          socket.emit('videoSelected', myFilename);
+        }
+      });
+      socket.on('disconnect', () => {
+        wsStatus.textContent = 'Déconnecté du WebSocket';
+        wsStatus.style.color = '#ff5555';
+        pauseVideo();
+      });
+
+      function pauseVideo() {
+        video.pause();
+      }
+
+      function formatTime(seconds) {
+        const min = Math.floor(seconds / 60);
+        const sec = Math.floor(seconds % 60);
+        return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+      }
+
+      video.addEventListener('loadedmetadata', function() {
+        seekBar.max = video.duration;
+        seekBar.value = 0;
+        updateSeekBarState();
+        updateTimeLabel();
+        volumeBar.value = video.volume;
+        volumeBar.disabled = video.muted;
+      });
+      video.addEventListener('timeupdate', function() {
+        seekBar.value = video.currentTime;
+        updateTimeLabel();
+      });
+
+      seekBar.addEventListener('input', function() {
+        updateTimeLabel();
+        if (allUsersHaveSameFile()) {
+          socket.emit('videoCommand', { action: 'seek', time: parseFloat(seekBar.value) });
+        }
+      });
+
+      function updateTimeLabel() {
+        const current = formatTime(video.currentTime);
+        const total = formatTime(video.duration || 0);
+        timeLabel.textContent = `${current} / ${total}`;
+      }
+
+      function updateSeekBarState() {
+        seekBar.disabled = !allUsersHaveSameFile();
+      }
+
+      document.getElementById('play-btn').onclick = function() {
+        if (allUsersHaveSameFile()) {
+          socket.emit('videoCommand', { action: 'play', time: video.currentTime });
+        }
+      };
+      document.getElementById('pause-btn').onclick = function() {
+        if (allUsersHaveSameFile()) {
+          socket.emit('videoCommand', { action: 'pause', time: video.currentTime });
+        }
+      };
+      document.getElementById('restart-btn').onclick = function() {
+        if (allUsersHaveSameFile()) {
+          socket.emit('videoCommand', { action: 'restart' });
+        }
+      };
+      document.getElementById('forward-btn').onclick = function() {
+        if (allUsersHaveSameFile()) {
+          socket.emit('videoCommand', {
+            action: 'forward',
+            time: video.currentTime,
+            paused: video.paused
+          });
+        }
+      };
+      document.getElementById('backward-btn').onclick = function() {
+        if (allUsersHaveSameFile()) {
+          socket.emit('videoCommand', {
+            action: 'backward',
+            time: video.currentTime,
+            paused: video.paused
+          });
+        }
+      };
+
+      socket.on('videoCommand', function(cmd) {
+        if (!allUsersHaveSameFile()) return;
+        switch (cmd.action) {
+          case 'play':
+            video.currentTime = cmd.time;
+            video.play();
+            break;
+          case 'pause':
+            video.currentTime = cmd.time;
+            video.pause();
+            break;
+          case 'restart':
+            video.currentTime = 0;
+            video.play();
+            break;
+          case 'forward':
+            video.currentTime = cmd.time + 10;
+            if (cmd.paused) video.pause(); else video.play();
+            break;
+          case 'backward':
+            video.currentTime = Math.max(0, cmd.time - 10);
+            if (cmd.paused) video.pause(); else video.play();
+            break;
+          case 'seek':
+            video.currentTime = cmd.time;
+            break;
+        }
+      });
+
+      volumeBar.addEventListener('input', function() {
+        if (!video.muted) {
+          video.volume = parseFloat(volumeBar.value);
+        }
+      });
+
+      muteBtn.onclick = function() {
+        video.muted = !video.muted;
+        volumeBar.disabled = video.muted;
+        muteBtn.textContent = video.muted ? "Unmute" : "Mute";
+      };
+
+      video.addEventListener('volumechange', function() {
+        volumeBar.value = video.volume;
+        volumeBar.disabled = video.muted;
+        muteBtn.textContent = video.muted ? "Unmute" : "Mute";
+      });
+
+      // Gestion de l'affichage automatique des contrôles
+      let controlsTimeout;
+      function showControls() {
+        videoPlayer.classList.remove('hide-controls');
+        clearTimeout(controlsTimeout);
+        controlsTimeout = setTimeout(() => {
+          if (video.src) videoPlayer.classList.add('hide-controls');
+        }, 3000);
+      }
+      videoPlayer.addEventListener('mousemove', showControls);
+      document.addEventListener('mousemove', showControls);
+      videoPlayer.addEventListener('mouseleave', () => {
+        if (video.src) videoPlayer.classList.add('hide-controls');
+      });
+      video.addEventListener('loadeddata', showControls);
+      videoPlayer.addEventListener('focusin', showControls);
+      videoPlayer.addEventListener('click', showControls);
+      document.getElementById('video-file').addEventListener('change', showControls);
+    </script>
+</body>
 </html>
