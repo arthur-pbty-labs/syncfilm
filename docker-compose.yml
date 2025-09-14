@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${PORT:-3000}:${PORT:-3000}" # Map the container port to the host port
+      - "3001:${PORT:-3000}" # Map the container port to the host port
     restart: unless-stopped
     environment:
       - NODE_ENV=${NODE_ENV:-production}
